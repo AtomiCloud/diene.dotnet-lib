@@ -78,13 +78,16 @@
     it removes the need for carboxylic's `update_version.sh` / xmlstarlet step.
   - `.github/workflows/cd.yaml` — add a `publish` job on `v*.*.*` (or a
     `reusable-publish.yaml`, bun-lib style).
+  - Auth to nuget.org: prefer **Trusted Publishing** (OIDC from GitHub Actions —
+    no long-lived secret) where available; `NUGET_API_KEY` is the fallback.
 
 ### 3.4 CI: prove the artifact, not just the code
 
 - Add a **`package-validate`** job (the dotnet analogue of bun-lib's
   publint/attw gate): `dotnet pack` + validate the nupkg (pack succeeds,
   symbols present, metadata complete, no missing README/icon). "Does it
-  actually install as a package?" gate.
+  actually install as a package?" gate. Implemented as a `scripts/ci/*.sh`
+  script (bun-lib's `pkg-validate.sh` shape) so it runs identically locally.
 - Keep base's precommit / dead-code / unit / int / build jobs untouched.
 
 ### 3.5 Testing & coverage on the shipped surface
@@ -103,6 +106,17 @@
   pack/publish flow, per-package coverage, "this is a library not a service,"
   and the **promotion knobs** a downstream swaps (see §5).
 
+### 3.7 Identity & naming (decide once, up front)
+
+- **Consumer-visible identity must be real**: the `PackageId`s and the shipped
+  `Lib`/`TestHelper` namespaces are what NuGet consumers see — give them the
+  sample's real identity, not `DotnetBase`.
+- **Repo-internal scaffold names stay base-named** to keep the 3wm surface
+  minimal: `dotnet-base.slnx`, `.config/dotnet-base.test.yaml`, workflow files,
+  and the non-shipped projects' namespaces (`App`, `UnitTest`, `IntTest`) are
+  renamed only if an artifact forces it.
+- README title/badges: rewritten to this repo — small, isolated edits.
+
 ## 4. Newest-practice upgrades (carboxylic is the "before")
 
 - **Target `net10.0`** (base already does) — not net8.0.
@@ -118,6 +132,14 @@
 - **SPDX `PackageLicenseExpression`** (e.g. `MIT`) over `PackageLicenseFile`.
 - **Keep base's modern test pins**: xunit.v3, Test.Sdk 18, FluentAssertions
   **7.x** (Apache-2.0 — v8 went commercial; carboxylic used v8), Testcontainers.
+- **Package validation between releases**: `EnablePackageValidation` (+ a
+  `PackageValidationBaselineVersion` once 1.0 ships) to catch accidental
+  API breaks at pack time.
+- **Trim/AOT-ready metadata**: `IsTrimmable` / `IsAotCompatible` where the
+  sample code allows — modern consumers expect it.
+- **Single-TFM by design**: stay `net10.0` for the sample; multi-targeting
+  (e.g. `net10.0;netstandard2.0` for reach) is a documented promotion knob,
+  not built here.
 
 ## 5. Promotion knobs (what a downstream template swaps)
 
@@ -139,8 +161,19 @@
 - New behaviour lives in **new files** (`scripts/ci/publish.sh`, new workflows,
   `TestHelper/`) wherever possible, rather than edits to shared base files.
 
-## 7. Out of scope
+## 7. Out of scope / conscious drops
 
 - Runtime service concerns (hosting, HTTP, deployment) — that's `dotnet-api`.
 - Actual implementation of the library logic beyond a minimal illustrative
   sample — the point is the pattern and the pipeline.
+- carboxylic's **DeepSource** integration — base's CI gates + Codecov cover
+  static quality; consciously dropped, not forgotten.
+
+## 8. Definition of done ("proven working")
+
+- A real, versioned release exists **on nuget.org**: both packages (lib +
+  test-helper) with `.snupkg` symbols, produced end-to-end by
+  commit → semver tag → tag-triggered publish — no manual steps.
+- CI is green including the `package-validate` gate, and
+  `dotnet add package <PackageId>` works in a scratch project.
+- `main` still merges cleanly from upstream `dotnet-base` (the 3wm check).
