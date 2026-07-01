@@ -22,7 +22,7 @@
 
 - **One small idea, fully productionised.** carboxylic ships `AtomiCloud.Result`
   (a Result / Railway-Oriented-Programming type) — minimal domain, maximal
-  lifecycle. Prove the *pipeline*, not a big library.
+  lifecycle. Prove the _pipeline_, not a big library.
 - **Multi-package from one repo.** Its signature shape is a **library + a
   companion test-helper package** (`AtomiCloud.Result` + `AtomiCloud.Result.TestHelper`,
   the latter referencing the lib and adding FluentAssertions steps). The sample
@@ -37,6 +37,7 @@
 ## 3. High-level goals
 
 ### 3.1 Multi-library solution layout
+
 - Keep base's 4-project shape; add a **second packable project** so the
   "lib + sibling test-helper" pattern is real, not hypothetical:
   - `Lib/` → the shipped library (packable).
@@ -47,6 +48,7 @@
 - Add the new project as a single additive line in `dotnet-base.slnx`.
 
 ### 3.2 Packaging metadata (shared where possible)
+
 - Put **shared** packaging props once in `Directory.Build.props`
   (`Authors`, `Company`, `PackageProjectUrl`, `RepositoryUrl`, `RepositoryType`,
   `PackageLicenseExpression`, symbol/source-link/deterministic flags). Each
@@ -60,6 +62,7 @@
   `PackageIcon` (+ `LICENSE`, `logo.png` at root) via `<None Pack="true">`.
 
 ### 3.3 Release → NuGet publish (two-phase, tag-triggered)
+
 - Reuse base's semver `release.yaml` (compute version from commits, cut a
   `v*.*.*` tag). **Add** a tag-triggered publish path:
   - `scripts/ci/publish.sh` — derive `VERSION="${GITHUB_REF_NAME#v}"`, then
@@ -68,8 +71,8 @@
     `NUGET_API_KEY` from secret, `nix develop .#cd -c`.
   - Version stamping across all packages in lockstep — all packed with the same
     tag-derived `$VERSION`, so no per-package version lives in git. **Call out the
-    design choice**: carboxylic *commits* the csproj `<VersionPrefix>` bump
-    (`update_version.sh` + `@semantic-release/git` assets); bun-lib *derives*
+    design choice**: carboxylic _commits_ the csproj `<VersionPrefix>` bump
+    (`update_version.sh` + `@semantic-release/git` assets); bun-lib _derives_
     version from `GITHUB_REF_NAME` and **never commits it**. Prefer the
     tag-derived, no-commit approach — cleaner history, smaller 3wm surface, and
     it removes the need for carboxylic's `update_version.sh` / xmlstarlet step.
@@ -77,6 +80,7 @@
     `reusable-publish.yaml`, bun-lib style).
 
 ### 3.4 CI: prove the artifact, not just the code
+
 - Add a **`package-validate`** job (the dotnet analogue of bun-lib's
   publint/attw gate): `dotnet pack` + validate the nupkg (pack succeeds,
   symbols present, metadata complete, no missing README/icon). "Does it
@@ -84,6 +88,7 @@
 - Keep base's precommit / dead-code / unit / int / build jobs untouched.
 
 ### 3.5 Testing & coverage on the shipped surface
+
 - Per-package targeted coverage via the existing `.config/*.test.yaml`
   mechanism — high bar (e.g. 100% unit on `[Lib]`) on shipped code.
 - Sample tests exercise both `Lib` and `TestHelper`; `UnitTest` references
@@ -91,6 +96,7 @@
   the test-helper package is dogfooded by the repo's own tests).
 
 ### 3.6 Docs
+
 - `README.md`: NuGet install snippet, usage, version/downloads badges
   (bun-lib README shape).
 - `docs/developer/dotnet-lib-baseline.md` (parallel to bun's `bun-baseline.md`):
