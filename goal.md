@@ -50,22 +50,29 @@
 - Put **shared** packaging props once in `Directory.Build.props`
   (`Authors`, `Company`, `PackageProjectUrl`, `RepositoryUrl`, `RepositoryType`,
   `PackageLicenseExpression`, symbol/source-link/deterministic flags). Each
-  packable csproj sets only `PackageId`, `Description`, `VersionPrefix`,
-  `IsPackable`, `PackageReadmeFile`.
+  packable csproj sets only `PackageId`, `Description`, `IsPackable`,
+  `PackageReadmeFile`.
+- **Version is not baked into the csproj.** With the tag-derived approach (§3.3),
+  csproj carries only a dev placeholder (e.g. `VersionPrefix` `0.0.0`, or omit
+  it); the real version is injected at pack time via `--property:Version=…`. Do
+  not hand-maintain per-csproj versions.
 - Bundle **docs + branding into the package**: `PackageReadmeFile` +
   `PackageIcon` (+ `LICENSE`, `logo.png` at root) via `<None Pack="true">`.
 
 ### 3.3 Release → NuGet publish (two-phase, tag-triggered)
 - Reuse base's semver `release.yaml` (compute version from commits, cut a
   `v*.*.*` tag). **Add** a tag-triggered publish path:
-  - `scripts/ci/publish.sh` — `dotnet pack` each comma-delimited target →
-    `dotnet nuget push --skip-duplicate` (lib + `.snupkg` symbols),
+  - `scripts/ci/publish.sh` — derive `VERSION="${GITHUB_REF_NAME#v}"`, then
+    `dotnet pack <target> --property:Version=$VERSION` each comma-delimited
+    target → `dotnet nuget push --skip-duplicate` (lib + `.snupkg` symbols),
     `NUGET_API_KEY` from secret, `nix develop .#cd -c`.
-  - Version stamping across all packages in lockstep. **Call out the design
-    choice**: carboxylic *commits* the csproj `<VersionPrefix>` bump
+  - Version stamping across all packages in lockstep — all packed with the same
+    tag-derived `$VERSION`, so no per-package version lives in git. **Call out the
+    design choice**: carboxylic *commits* the csproj `<VersionPrefix>` bump
     (`update_version.sh` + `@semantic-release/git` assets); bun-lib *derives*
     version from `GITHUB_REF_NAME` and **never commits it**. Prefer the
-    tag-derived, no-commit approach — cleaner history, smaller 3wm surface.
+    tag-derived, no-commit approach — cleaner history, smaller 3wm surface, and
+    it removes the need for carboxylic's `update_version.sh` / xmlstarlet step.
   - `.github/workflows/cd.yaml` — add a `publish` job on `v*.*.*` (or a
     `reusable-publish.yaml`, bun-lib style).
 
@@ -79,7 +86,9 @@
 ### 3.5 Testing & coverage on the shipped surface
 - Per-package targeted coverage via the existing `.config/*.test.yaml`
   mechanism — high bar (e.g. 100% unit on `[Lib]`) on shipped code.
-- Sample tests exercise both `Lib` and `TestHelper`.
+- Sample tests exercise both `Lib` and `TestHelper`; `UnitTest` references
+  `TestHelper` and uses its assertion helpers (carboxylic's precedent —
+  the test-helper package is dogfooded by the repo's own tests).
 
 ### 3.6 Docs
 - `README.md`: NuGet install snippet, usage, version/downloads badges
