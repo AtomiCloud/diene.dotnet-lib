@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/AtomiCloud/diene.dotnet-lib/compare/v1.0.1...v1.0.2) (2026-07-23)
+
+
+### 🐛 Bug Fixes 🐛
+
+* **dotnet-lib:** accept library binary smoke title ([942926b](https://github.com/AtomiCloud/diene.dotnet-lib/commit/942926b46f34a042b362f9453dfec878f66890e9))
+
 ## [1.0.1](https://github.com/AtomiCloud/diene.dotnet-lib/compare/v1.0.0...v1.0.1) (2026-07-23)
 
 
