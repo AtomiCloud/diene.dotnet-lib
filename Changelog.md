@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/AtomiCloud/diene.dotnet-lib/compare/v1.0.0...v1.0.1) (2026-07-23)
+
+
+### 🐛 Bug Fixes 🐛
+
+* **dotnet-lib:** enforce published API baseline ([dd2271a](https://github.com/AtomiCloud/diene.dotnet-lib/commit/dd2271a8947ea7d8f96b34806412704381d40878))
+
 ## 1.0.0 (2026-07-23)
 
 
