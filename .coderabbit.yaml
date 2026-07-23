@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# ### workspace-coderabbit
+# #### source: workspace
 reviews:
   path_filters:
-    - '!docs/developer/standard/**/*.md'
-    - '!spec/**/*.md'
+    - '!docs/standards/**/*.md'
+    - '!docs/domain/**/*.md'
+version: 2

@@ -2,8 +2,6 @@
 set -euo pipefail
 
 ./scripts/ci/setup.sh
+./scripts/local/build.sh
 
-echo "🔨 Building solution (Release)..."
-dotnet build ./*.slnx -c Release
-
-echo "✅ Build complete"
+echo "✅ CI build complete"

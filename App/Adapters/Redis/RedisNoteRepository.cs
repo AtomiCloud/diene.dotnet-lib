@@ -1,15 +1,10 @@
 using System.Text.Json;
-using AtomiCloud.DotnetBase.Lib.Note;
+using AtomiCloud.Diene.Note;
 using StackExchange.Redis;
 
 namespace AtomiCloud.DotnetBase.App.Adapters.Redis;
 
-/// <summary>
-/// Redis-backed <see cref="INoteRepository" />. Each note is mapped to its storage
-/// model (<see cref="NoteData" />), serialised to JSON, and stored under a
-/// <c>note:{id}</c> key. Identity is minted here, at the persistence boundary,
-/// keeping the domain free of infrastructure concerns.
-/// </summary>
+/// <summary>Redis-backed persistence adapter for notes.</summary>
 public class RedisNoteRepository(IConnectionMultiplexer redis) : INoteRepository
 {
     private const string KeyPrefix = "note:";

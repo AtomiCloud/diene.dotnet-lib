@@ -1,38 +1,71 @@
+# ### workspace-ci
+# #### source: workspace
 name: CI
+
 on:
-  push: null
+  push:
+  pull_request:
+  workflow_dispatch:
+
 jobs:
   precommit:
     name: Pre-Commit
+    permissions:
+      contents: read
     uses: ./.github/workflows/⚡reusable-precommit.yaml
     secrets: inherit
-  dead-code:
+
+  # ### dotnet-base-ci
+  # #### source: dotnet-base
+  deadcode:
     name: Dead Code
+    permissions:
+      contents: read
     uses: ./.github/workflows/⚡reusable-dead-code.yaml
+    secrets: inherit
+
   unit:
     name: Unit Tests
+    permissions:
+      contents: read
     uses: ./.github/workflows/⚡reusable-test.yaml
     secrets: inherit
     with:
       mode: unit
       name: Unit
+
   int:
     name: Integration Tests
+    permissions:
+      contents: read
     uses: ./.github/workflows/⚡reusable-test.yaml
     secrets: inherit
     with:
       mode: int
       name: Integration
-  build:
-    name: Build
-    uses: ./.github/workflows/⚡reusable-build.yaml
-  docker:
-    name: Docker Image
+
+  # ### dotnet-lib-ci
+  # #### source: dotnet-lib
+  meta:
+    name: TestHelper Meta Tests
     permissions:
-      id-token: write
-      packages: write
-    uses: ./.github/workflows/⚡reusable-docker.yaml
+      contents: read
+    uses: ./.github/workflows/⚡reusable-test.yaml
     secrets: inherit
     with:
-      image_name: diene-dotnet-base
-      dockerfile: ./infra/Dockerfile
+      mode: meta
+      name: TestHelper Meta
+
+  package-validate:
+    name: Package Validation
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-package-validate.yaml
+    secrets: inherit
+
+  build:
+    name: Build
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-build.yaml
+    secrets: inherit

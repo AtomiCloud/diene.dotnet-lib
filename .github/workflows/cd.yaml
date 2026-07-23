@@ -1,23 +1,16 @@
+# ### dotnet-lib-cd
+# #### source: dotnet-lib
 name: CD
+
 on:
   push:
     tags:
       - v*.*.*
+
 jobs:
-  placeholder:
-    name: Placeholder CD
-    runs-on: ubuntu-latest
-    steps:
-      - name: Placeholder Step
-        run: echo "Placeholder step ${{ github.ref_name }}"
-  docker:
-    name: Docker Image
+  publish:
+    name: Publish to NuGet
     permissions:
-      id-token: write
-      packages: write
-    uses: ./.github/workflows/⚡reusable-docker.yaml
+      contents: read
+    uses: ./.github/workflows/⚡reusable-publish.yaml
     secrets: inherit
-    with:
-      image_name: diene-dotnet-base
-      dockerfile: ./infra/Dockerfile
-      version: ${{ github.ref_name }}

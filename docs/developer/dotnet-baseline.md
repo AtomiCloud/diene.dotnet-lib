@@ -3,100 +3,68 @@ id: dotnet-baseline
 title: .NET Baseline
 ---
 
-# .NET Baseline
+# .NET baseline
 
-`dotnet-base` is the .NET foundation for `AtomiCloud/diene.dotnet-base`. It is a
-**sibling-template foundation**: sibling templates (library, API) copy it and
-adapt a small set of settings (see [Template maintenance](#template-maintenance))
-before formal CyanPrint template promotion.
-
-Only .NET-specific baseline behavior is documented here. General standards stay
-in `docs/developer/standard/`.
+`dotnet-base` is the .NET 10 foundation for the dotnet template family. It
+replays the real `AtomiCloud/diene.dotnet-base` sample while retaining the current
+shared workspace, standards, secret, and release surfaces.
 
 ## Local commands
 
-New .NET entries:
+| Command                          | Purpose                                                        |
+| -------------------------------- | -------------------------------------------------------------- |
+| `pls setup`                      | Synchronize vendored skills and restore repo-local .NET tools. |
+| `pls clean`                      | Remove build and test artifacts.                               |
+| `pls build`                      | Build every project in Release.                                |
+| `pls dev`                        | Run the App through `dotnet watch`.                            |
+| `pls run -- <args>`              | Run the App in development mode.                               |
+| `pls preview -- <args>`          | Build and run the compiled Release artifact.                   |
+| `pls up` / `pls down`            | Start or stop the local Redis dependency.                      |
+| `pls test`                       | Run unit and integration tiers.                                |
+| `pls test:unit` / `pls test:int` | Run one tier.                                                  |
+| `pls test:coverage`              | Enforce both merged coverage ledgers.                          |
+| `pls test:watch`                 | Watch the fast unit tier.                                      |
+| `pls deadcode`                   | Emit the broad, non-blocking LLM review.                       |
+| `pls lint`                       | Run every generated pre-commit hook.                           |
 
-- `pls build`
-- `pls run -- <args>` (dev-mode App run; local dependencies via `pls up` / `pls down`)
-- `pls test`, `pls test:unit`, `pls test:int`
-- `pls test:coverage`, `pls test:unit:coverage`, `pls test:int:coverage`
-- `pls test:watch` (fast unit suite)
-- `pls dead-code`
-- `pls docker:prep`
+## Projects and coverage
 
-## Solution layout & test modes
+`dotnet-base.slnx` contains `App`, `Lib`, `UnitTest`, and `IntTest`. Register test
+projects once in `.config/dotnet-base.test.yaml`. The coverage runner iterates the
+registered projects, merges Coverlet JSON, and enforces one final threshold per
+tier:
 
-Four projects in `dotnet-base.slnx`, split so the fast path stays Docker-free:
+- unit: every `[Lib*]*` assembly at 100%;
+- integration: every `[App*]*` assembly at 80%.
 
-- **`Lib`** — pure domain code; covered by **`UnitTest`** (xunit.v3). No
-  containers; this is the default fast path.
-- **`App`** — the runnable composition root wiring adapters (Redis); covered by
-  **`IntTest`** against a throwaway Redis container via Testcontainers. Slow and
-  Docker-dependent, so it lives on a dedicated path.
+Adding `Lib2` and `UnitTest2` requires one solution line per project and one YAML
+list entry for `UnitTest2`. Assembly filters, merged thresholds, Codecov globs,
+and production dead-code project discovery follow the naming convention
+automatically. Codecov remains informational.
 
-The same `tasks/Taskfile.test.yaml` recipe serves both suites (parameterised by
-mode) — there is one test recipe, not two.
+## Dead code and supply chain
 
-## Coverage gates
+CI runs two strict dn-inspect mechanisms: all projects, then production-only
+`App*`/`Lib*` projects so exports reachable only from tests still fail. Local
+`pls deadcode` uses a deliberately broad filter and never blocks. Exclusion lists
+are forbidden.
 
-- Coverage config lives in `.config/dotnet-base.test.yaml`: unit enforces its
-  minimum on `[Lib]*`, integration on `[App]*` (coverlet filters).
-- The local coverage gate is blocking (`pls test:unit:coverage`,
-  `pls test:int:coverage` — the same scripts CI runs).
-- Codecov upload is non-blocking and split by `unit` / `int` flags.
-- `codecov.yml` statuses are informational by default.
+The SDK is pinned by `global.json`; packages use Central Package Management.
+`NuGetAuditMode=all`, analyzers, deterministic builds, and warnings-as-errors are
+enforced in Release builds.
 
-## Build, supply chain & runtime
+## Release
 
-- `pls build` (and `scripts/ci/build.sh`) build the solution in Release with
-  warnings as errors.
-- **NuGet audit** runs at restore (`NuGetAudit` + `NuGetAuditMode=all` in
-  `Directory.Build.props`): a known CVE in any direct or transitive package
-  fails the build. Loud by design; if a dependency is vulnerable, bump it.
-- Builds are deterministic; CI additionally sets `ContinuousIntegrationBuild`
-  (gated on `$CI`) so artifacts are reproducible and stamp-friendly.
-- `infra/Dockerfile` is a **placeholder**: `pls docker:prep` only validates the
-  build context. Downstream templates replace it with a real image.
+The library descendant replaces the base `VERSION` marker with its imported
+`Version.props` package manifest. `.gitlint` and `atomi_release.yaml` share one
+commit-type vocabulary.
 
-## Release & delivery
+## Template-maintenance boundary
 
-- semantic-release (conventional commits, `atomi_release.yaml`) computes the
-  version, commits `Changelog.md`, tags `v*.*.*`, and creates the GitHub
-  release. `.github/workflows/release.yaml` runs it after CI succeeds on
-  `main`.
-- The tag triggers `cd.yaml`, which builds and pushes the docker image. Images
-  land at the repo-scoped path `ghcr.io/atomicloud/<repo>/<image_name>`.
-- Workflow jobs that push images need `permissions: { id-token: write,
-packages: write }` (namespace OIDC + ghcr); the repo setting
-  `default_workflow_permissions` must be `write` for semantic-release to create
-  GitHub releases. New repos start at `read` — set it before the first release.
+Downstream nodes may adapt package/artifact identity, coverage thresholds,
+badges, and the illustrative Note source/tests. Keep
+`dotnet-base.slnx`, `.config/dotnet-base.test.yaml`, and the
+`AtomiCloud.DotnetBase.*` root namespaces base-named for merge stability.
 
-## External service / compute cost
-
-- Codecov upload runs only in CI and is best-effort.
-- Integration tests and the docker prep job require a Docker runtime.
-- Pre-commit, dead-code, unit, integration, build, and docker are separate CI
-  jobs.
-
-## Template maintenance
-
-`dotnet-base` is consumed by sibling templates before formal template
-promotion. Keep CyanPrint-managed/shared scaffold edits additive. Settings a
-downstream template is expected to adapt:
-
-- **Docker image name** — `image_name` in `ci.yaml`/`cd.yaml` and
-  `tasks/Taskfile.docker.yaml`.
-- **Coverage thresholds** — `.config/dotnet-base.test.yaml` minimums and
-  `codecov.yml` flags.
-- **Docker runtime** — `infra/Dockerfile` is replaced wholesale downstream.
-- **Badges / template promotion** — the `AtomiCloud/diene.dotnet-base` paths in
-  `README.md` badges are rewritten on promotion.
-- **Sample source/tests** — the `Note` domain (`Lib/Note`, `App/Adapters`,
-  matching `UnitTest`/`IntTest` suites) is illustrative and replaced per
-  service. Repo-internal scaffold names (`dotnet-base.slnx`,
-  `.config/dotnet-base.test.yaml`, `RootNamespace AtomiCloud.DotnetBase.*`)
-  intentionally stay base-named to keep the three-way-merge surface minimal.
-
-Merge ownership stays manual: CI is driven to green, but the actual merge is a
-human action.
+Observability is deliberately absent on this branch and arrives only through the
+separate observability add-back.

@@ -1,43 +1,105 @@
-# Code Rules
+# Diene workspace agent guide
 
-Use these shared standards as the source of truth for AtomiCloud code:
+<!-- ### nix-root -->
+<!-- #### source: main -->
 
-- [Software Design Philosophy](docs/developer/standard/software-design-philosophy/index.md)
-- [SOLID Principles](docs/developer/standard/solid-principles/index.md)
-- [Functional Practices](docs/developer/standard/functional-practices/index.md)
-- [Domain-Driven Design](docs/developer/standard/domain-driven-design/index.md)
-- [Three-Layer Architecture](docs/developer/standard/three-layer-architecture/index.md)
-- [Stateless OOP and Dependency Injection](docs/developer/standard/stateless-oop-di/index.md)
-- [Validation](docs/developer/standard/validation/index.md)
-- [Date/Time](docs/developer/standard/datetime/index.md)
-- [Testing](docs/developer/standard/testing/index.md)
-- [Utilities](docs/developer/standard/utilities/index.md)
-- [Contributor Docs](docs/developer/standard/contributor-docs/index.md)
-- [Contributor Docs Checklist](docs/developer/standard/contributor-docs/checklist.md)
-- [Contributor Docs Classification](docs/developer/standard/contributor-docs/classification.md)
-- [Contributor Docs Frontmatter](docs/developer/standard/contributor-docs/frontmatter.md)
-- [Contributor Docs Structure](docs/developer/standard/contributor-docs/structure.md)
+Use the repository's Nix shell for every command. Read [the Nix standard](docs/standards/nix/index.md) before changing the flake or `nix/` modules.
 
-Only selected language-specific standards are generated. Do not link to missing language docs.
+<!-- ### workspace -->
+<!-- #### source: workspace -->
 
-- [C# SOLID Principles](docs/developer/standard/solid-principles/languages/csharp.md)
-- [C# Functional Practices](docs/developer/standard/functional-practices/languages/csharp.md)
-- [C# Domain-Driven Design](docs/developer/standard/domain-driven-design/languages/csharp.md)
-- [C# Stateless OOP and DI](docs/developer/standard/stateless-oop-di/languages/csharp.md)
-- [C# Validation](docs/developer/standard/validation/languages/csharp.md)
-- [C# Date/Time](docs/developer/standard/datetime/languages/csharp.md)
-- [C# Testing](docs/developer/standard/testing/languages/csharp.md)
-- [C# Utilities](docs/developer/standard/utilities/languages/csharp.md)
+Follow the linked standard before changing its surface. Keep many-owner files in keyed, source-attributed blocks and never hand-edit `.claude/skills/vendor/`.
 
-# .NET Baseline
+## CI/CD workflows
 
-See [docs/developer/dotnet-baseline.md](docs/developer/dotnet-baseline.md) for .NET-specific commands, test modes, coverage, supply-chain gates, release flow, and template-maintenance knobs.
+See [docs/standards/ci-cd/index.md](docs/standards/ci-cd/index.md).
 
-# Base Template (diene.dotnet-base)
+## Conventional commits
 
-This repo is the AtomiCloud **.NET 10 base template**. Everything above is the mandatory convention source — treat `docs/developer/standard/` as binding. When working here:
+See [docs/standards/conventional-commits/index.md](docs/standards/conventional-commits/index.md).
 
-- **Use `pls` (Taskfile) as the entry point** for every task — `pls build`, `pls run`, `pls up`/`pls down`, `pls lint`, `pls test` (`:unit`/`:int`/`:coverage`/`:watch` variants), `pls dead-code`, `pls docker:prep`. These run the same gates CI runs (CI invokes the matching `scripts/ci/*` scripts under `nix develop .#ci`); do not invent ad-hoc `dotnet`/`docker` invocations. See `.claude/skills/dotnet-base/SKILL.md`.
-- **Follow .NET 10 conventions** — the SDK is pinned via `global.json`; build and test in Release. CI runs in `nix develop .#ci`, so any new gate must be a `scripts/ci/*.sh` script reproducible locally.
-- **Respect template-merge constraints** — keep edits minimal and line-oriented (append-only where possible, stable ordering) so three-way template merges stay clean.
-- **Keep downstream concerns out** — this base stops at local gates and the CI that runs them. Publishing, deployment packaging (Helm/Garden/K3d), NuGet/API surfaces, and production observability belong to downstream templates, not here.
+## Infisical and secrets
+
+See [docs/standards/infisical/index.md](docs/standards/infisical/index.md).
+
+## Linting and pre-commit
+
+See [docs/standards/linting/index.md](docs/standards/linting/index.md).
+
+## Nix flakes and development shells
+
+See [docs/standards/nix/index.md](docs/standards/nix/index.md).
+
+## Release automation
+
+See [docs/standards/semantic-release/index.md](docs/standards/semantic-release/index.md).
+
+## Service-tree identity
+
+See [docs/standards/service-tree/index.md](docs/standards/service-tree/index.md).
+
+## Shell scripts
+
+See [docs/standards/shell-scripts/index.md](docs/standards/shell-scripts/index.md).
+
+## Taskfile conventions
+
+See [docs/standards/taskfile/index.md](docs/standards/taskfile/index.md).
+
+<!-- ### shared -->
+<!-- #### source: shared -->
+
+## Shared engineering standards
+
+- [Authorization](docs/standards/authorization/index.md)
+- [Contributor documentation](docs/standards/contributor-docs/index.md)
+  ([checklist](docs/standards/contributor-docs/checklist.md),
+  [classification](docs/standards/contributor-docs/classification.md),
+  [frontmatter](docs/standards/contributor-docs/frontmatter.md), and
+  [structure](docs/standards/contributor-docs/structure.md))
+- [Date and time](docs/standards/datetime/index.md)
+- [Domain-driven design](docs/standards/domain-driven-design/index.md)
+- [Functional practices](docs/standards/functional-practices/index.md)
+- [Software design philosophy](docs/standards/software-design-philosophy/index.md)
+- [SOLID principles](docs/standards/solid-principles/index.md)
+- [Stateless OOP and dependency injection](docs/standards/stateless-oop-di/index.md)
+- [Testing](docs/standards/testing/index.md)
+- [Three-layer architecture](docs/standards/three-layer-architecture/index.md)
+- [Utility libraries](docs/standards/utilities/index.md)
+- [Data validation](docs/standards/validation/index.md)
+
+Domain-specific architecture and behavior belongs under
+[docs/domain/](docs/domain/README.md). The `docs/standards/contracts/` slot is
+reserved for the separately owned C0 contracts standard.
+
+<!-- ### dotnet-base -->
+<!-- #### source: dotnet-base -->
+
+## .NET base template
+
+Read [the .NET baseline](docs/developer/dotnet-baseline.md) and use `pls` for
+setup, build, run, test, coverage, and dead-code review.
+
+Language variants:
+
+- [C# date and time](docs/standards/datetime/languages/csharp.md)
+- [C# domain-driven design](docs/standards/domain-driven-design/languages/csharp.md)
+- [C# functional practices](docs/standards/functional-practices/languages/csharp.md)
+- [C# SOLID principles](docs/standards/solid-principles/languages/csharp.md)
+- [C# stateless OOP and DI](docs/standards/stateless-oop-di/languages/csharp.md)
+- [C# testing](docs/standards/testing/languages/csharp.md)
+- [C# utilities](docs/standards/utilities/languages/csharp.md)
+- [C# validation](docs/standards/validation/languages/csharp.md)
+
+Keep `dotnet-base.slnx`, `.config/dotnet-base.test.yaml`, and
+`AtomiCloud.DotnetBase.*` root namespaces base-named. Observability is absent on
+this branch.
+
+<!-- ### dotnet-lib -->
+<!-- #### source: dotnet-lib -->
+
+## .NET library template
+
+Read [the .NET library baseline](docs/developer/dotnet-lib-baseline.md) before
+changing package identity, release/versioning, package validation, TestHelper,
+meta coverage, or shipped skills.

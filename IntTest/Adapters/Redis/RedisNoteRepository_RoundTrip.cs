@@ -1,15 +1,11 @@
 using AtomiCloud.DotnetBase.App.Adapters.Redis;
-using AtomiCloud.DotnetBase.Lib.Note;
+using AtomiCloud.Diene.Note;
 using FluentAssertions;
 using StackExchange.Redis;
 using Testcontainers.Redis;
 
 namespace AtomiCloud.DotnetBase.IntTest.Adapters.Redis;
 
-/// <summary>
-/// Proves the Redis adapter round trip against a real Redis instance started by
-/// Testcontainers. A fresh container per test class keeps state isolated.
-/// </summary>
 public class RedisNoteRepository_RoundTrip : IAsyncLifetime
 {
     private readonly RedisContainer _redis = new RedisBuilder("redis:8.2.1-alpine")
@@ -23,14 +19,11 @@ public class RedisNoteRepository_RoundTrip : IAsyncLifetime
         var options = ConfigurationOptions.Parse(_redis.GetConnectionString());
         options.AbortOnConnectFail = false;
         options.ConnectRetry = 5;
-
         _connection = await ConnectionMultiplexer.ConnectAsync(options);
     }
 
     public async ValueTask DisposeAsync()
     {
-        // _connection stays null if StartAsync threw before it was assigned (e.g. Docker
-        // unavailable); guard so disposal doesn't mask the real initialisation failure.
         if (_connection is not null) await _connection.DisposeAsync();
         await _redis.DisposeAsync();
     }

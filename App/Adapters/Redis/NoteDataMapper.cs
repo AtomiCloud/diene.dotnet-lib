@@ -1,11 +1,8 @@
-using AtomiCloud.DotnetBase.Lib.Note;
+using AtomiCloud.Diene.Note;
 
 namespace AtomiCloud.DotnetBase.App.Adapters.Redis;
 
-/// <summary>
-/// Pure Data ↔ Domain mappers for notes. Keeps the Redis storage shape
-/// (<see cref="NoteData" />) isolated from the domain <see cref="NotePrincipal" />.
-/// </summary>
+/// <summary>Maps between Redis storage data and the domain note representation.</summary>
 internal static class NoteDataMapper
 {
     public static NoteData ToData(this NotePrincipal principal) => new()

@@ -1,75 +1,108 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: dotnet-test.sh <unit|int> [--watch|--coverage] — per-kind project, coverage
-# filters and threshold come from .config/*.test.yaml (override with DOTNET_TEST_CONFIG).
+kind="${1:-}"
+mode="${2:-normal}"
 
-KIND="${1:-}"
-MODE="${2:-normal}"
+[ "${kind}" != "unit" ] && [ "${kind}" != "int" ] && [ "${kind}" != "meta" ] && echo "❌ Usage: dotnet-test.sh <unit|int|meta> [--watch|--coverage]" >&2 && exit 1
+[ "${mode}" != "normal" ] && [ "${mode}" != "--watch" ] && [ "${mode}" != "--coverage" ] && echo "❌ Unknown mode '${mode}'" >&2 && exit 1
 
-[ "${KIND}" != "unit" ] && [ "${KIND}" != "int" ] && echo "❌ Usage: dotnet-test.sh <unit|int> [--watch|--coverage]" >&2 && exit 1
-# Reject unknown modes so a typo like `--cov` cannot silently skip threshold enforcement.
-[ "${MODE}" != "normal" ] && [ "${MODE}" != "--watch" ] && [ "${MODE}" != "--coverage" ] && echo "❌ Unknown mode '${MODE}'. Usage: dotnet-test.sh <unit|int> [--watch|--coverage]" >&2 && exit 1
+root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+config="${DOTNET_TEST_CONFIG:-$(find "${root}/.config" -maxdepth 1 -name '*.test.yaml' 2>/dev/null | head -n 1)}"
+[ ! -f "${config:-/nonexistent}" ] && echo "❌ Test config not found (.config/*.test.yaml)" >&2 && exit 1
+! command -v yq >/dev/null && echo "❌ yq is required to read ${config}" >&2 && exit 1
+[ "${kind}" = "meta" ] && [ -z "$(find "${root}" -maxdepth 2 -type f -path '*/TestHelper*.csproj' -print -quit)" ] && echo "✅ No TestHelper project; meta tier is inactive" && exit 0
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-CONFIG="${DOTNET_TEST_CONFIG:-$(find "${ROOT}/.config" -maxdepth 1 -name '*.test.yaml' 2>/dev/null | head -1)}"
-[ ! -f "${CONFIG:-/nonexistent}" ] && echo "❌ Test config not found (.config/*.test.yaml)" >&2 && exit 1
-! command -v yq >/dev/null && echo "❌ yq is required to read ${CONFIG}" >&2 && exit 1
+mapfile -t projects < <(yq -r ".coverage.${kind}.projects[]?" "${config}")
+minimum="$(yq -er ".coverage.${kind}.minimum // \"\"" "${config}")"
+include="$(yq -er ".coverage.${kind}.include // [] | join(\"%2c\")" "${config}")"
+exclude="$(yq -er ".coverage.${kind}.exclude // [] | join(\"%2c\")" "${config}")"
+results="${root}/TestResults/${kind}"
+coverage="${results}/coverage"
 
-PROJECT_REL="$(yq -er ".coverage.${KIND}.project // \"\"" "${CONFIG}")"
-COV_MIN="$(yq -er ".coverage.${KIND}.minimum // \"\"" "${CONFIG}")"
-COV_INC="$(yq -er ".coverage.${KIND}.include // [] | join(\"%2c\")" "${CONFIG}")"
-COV_EXC="$(yq -er ".coverage.${KIND}.exclude // [] | join(\"%2c\")" "${CONFIG}")"
-RESULTS="${ROOT}/TestResults/${KIND}"
-COV_OUT="${RESULTS}/coverage"
-PROJECT="${ROOT}/${PROJECT_REL}"
+[ "${#projects[@]}" -eq 0 ] && echo "❌ Missing .coverage.${kind}.projects entries in ${config}" >&2 && exit 1
+[ -z "${minimum}" ] && echo "❌ Missing .coverage.${kind}.minimum in ${config}" >&2 && exit 1
+[ -z "${include}" ] && echo "❌ Missing .coverage.${kind}.include in ${config}" >&2 && exit 1
+[[ ! ${minimum} =~ ^[0-9]+$ || ${minimum} -gt 100 ]] && echo "❌ ${kind} coverage minimum '${minimum}' must be an integer in [0,100]" >&2 && exit 1
 
-[ -z "${PROJECT_REL}" ] && echo "❌ Missing .coverage.${KIND}.project in ${CONFIG}" >&2 && exit 1
-[ -z "${COV_MIN}" ] && echo "❌ Missing .coverage.${KIND}.minimum in ${CONFIG}" >&2 && exit 1
-[ -z "${COV_INC}" ] && echo "❌ Missing .coverage.${KIND}.include in ${CONFIG}" >&2 && exit 1
-[[ ${PROJECT_REL} != *.csproj || ${PROJECT_REL} == /* || ${PROJECT_REL} == *..* || ! -f ${PROJECT} ]] && echo "❌ ${KIND} project '${PROJECT_REL}' must be a relative .csproj path" >&2 && exit 1
-# Validate the threshold so the numeric compare cannot degrade to a string compare.
-[[ ! ${COV_MIN} =~ ^[0-9]+$ || ${COV_MIN} -gt 100 ]] && echo "❌ ${KIND} coverage minimum '${COV_MIN}' must be an integer in [0,100]" >&2 && exit 1
+for project_rel in "${projects[@]}"; do
+  project="${root}/${project_rel}"
+  [[ ${project_rel} != *.csproj || ${project_rel} == /* || ${project_rel} == *..* || ! -f ${project} ]] && echo "❌ ${kind} project '${project_rel}' must be a relative .csproj path" >&2 && exit 1
+done
 
-[ "${MODE}" = "--watch" ] && echo "👀 Watching ${KIND} tests..." && exec dotnet watch --project "${PROJECT}" test
-
-if [ "${MODE}" = "normal" ]; then
-  echo "🧪 Running ${KIND} tests..."
-  mkdir -p "${RESULTS}"
-  set +e
-  dotnet test "${PROJECT}" -c Release --logger "trx;LogFileName=${KIND}.trx" --results-directory "${RESULTS}"
-  code=$?
-  set -e
-  echo "📦 Test results preserved in ${RESULTS}"
-  exit "${code}"
+if [ "${mode}" = "--watch" ]; then
+  echo "👀 Watching ${kind} tests from ${projects[0]}..."
+  exec dotnet watch --project "${root}/${projects[0]}" test -c Release
 fi
 
-echo "🧪 Running ${KIND} tests with coverage (min ${COV_MIN}%)..."
-rm -rf "${RESULTS}"
-mkdir -p "${RESULTS}" "${COV_OUT}"
+rm -rf "${results}"
+mkdir -p "${results}"
+failed=0
 
-# Artifacts are preserved even on failure so a red run still feeds Codecov.
-set +e
-dotnet test "${PROJECT}" -c Release \
-  --logger "trx;LogFileName=${KIND}.trx" \
-  --results-directory "${RESULTS}" \
-  /p:CollectCoverage=true \
-  /p:CoverletOutput="${COV_OUT}/" \
-  /p:CoverletOutputFormat=cobertura \
-  /p:Threshold="${COV_MIN}" \
-  /p:ThresholdType=line \
-  /p:Include="${COV_INC}" \
-  /p:Exclude="${COV_EXC}"
-code=$?
-set -e
+if [ "${mode}" = "normal" ]; then
+  for project_rel in "${projects[@]}"; do
+    project_name="$(basename "${project_rel}" .csproj)"
+    echo "🧪 Running ${kind} tests: ${project_rel}"
+    set +e
+    dotnet test "${root}/${project_rel}" -c Release \
+      --logger "trx;LogFileName=${kind}-${project_name}.trx" \
+      --results-directory "${results}"
+    code=$?
+    set -e
+    [ "${code}" -ne 0 ] && failed=1
+  done
+  [ "${failed}" -ne 0 ] && echo "❌ ${kind} tests failed" >&2 && exit 1
+  echo "✅ ${kind} tests complete"
+  exit 0
+fi
 
-report="${COV_OUT}/coverage.cobertura.xml"
-[ -f "${report}" ] && echo "📦 Coverage report: ${report}"
+mkdir -p "${coverage}"
+accumulator="${coverage}/coverage.json"
+last_index=$((${#projects[@]} - 1))
 
-[ "${code}" -ne 0 ] && echo "❌ ${KIND} tests or coverage failed (exit ${code})" >&2 && exit "${code}"
-[ ! -f "${report}" ] && echo "❌ No coverage report produced" >&2 && exit 1
+for index in "${!projects[@]}"; do
+  project_rel="${projects[${index}]}"
+  project_name="$(basename "${project_rel}" .csproj)"
+  format="json"
+  threshold_args=()
+  [ "${index}" -eq "${last_index}" ] && format="json%2ccobertura" && threshold_args=(/p:Threshold="${minimum}" /p:ThresholdType=line /p:ThresholdStat=total)
+  merge_args=()
+  [ -f "${accumulator}" ] && merge_args=(/p:MergeWith="${accumulator}")
 
-valid="$(grep -m1 -oE 'lines-valid="[0-9]+"' "${report}" | grep -oE '[0-9]+' || true)"
-[ "${valid:-0}" -le 0 ] && echo "❌ Coverage measured 0 lines — check the ${KIND} coverage Include matches a built assembly" >&2 && exit 1
+  echo "🧪 Running ${kind} coverage: ${project_rel}"
+  set +e
+  dotnet test "${root}/${project_rel}" -c Release \
+    --logger "trx;LogFileName=${kind}-${project_name}.trx" \
+    --results-directory "${results}" \
+    /p:CollectCoverage=true \
+    /p:CoverletOutput="${coverage}/coverage" \
+    /p:CoverletOutputFormat="${format}" \
+    /p:Include="${include}" \
+    /p:Exclude="${exclude}" \
+    "${merge_args[@]}" \
+    "${threshold_args[@]}"
+  code=$?
+  set -e
+  [ "${code}" -ne 0 ] && failed=1
+done
 
-echo "✅ ${KIND} coverage meets the ${COV_MIN}% minimum"
+report="${coverage}/coverage.cobertura.xml"
+[ "${failed}" -ne 0 ] && echo "❌ ${kind} tests or merged coverage failed" >&2 && exit 1
+[ ! -f "${report}" ] && echo "❌ No merged ${kind} coverage report produced" >&2 && exit 1
+
+valid="$(rg -o 'lines-valid="[0-9]+"' "${report}" | head -n 1 | rg -o '[0-9]+' || true)"
+[ "${valid:-0}" -le 0 ] && echo "❌ ${kind} coverage measured zero lines" >&2 && exit 1
+
+assemblies="$(rg -o '<package name="[^"]+"' "${report}" | sed -E 's/^<package name="|"$//g' | sort -u)"
+[ -z "${assemblies}" ] && echo "❌ ${kind} coverage contains no assemblies" >&2 && exit 1
+if [ "${kind}" = "unit" ]; then
+  bad_assembly="$(echo "${assemblies}" | rg -v '^(Lib|AtomiCloud[.]Diene[.])' | head -n 1 || true)"
+elif [ "${kind}" = "int" ]; then
+  bad_assembly="$(echo "${assemblies}" | rg -v '^App' | head -n 1 || true)"
+else
+  bad_assembly="$(echo "${assemblies}" | rg -v '[.]TestHelper$' | head -n 1 || true)"
+fi
+[ -n "${bad_assembly}" ] && echo "❌ ${kind} coverage escaped its assembly ledger: ${bad_assembly}" >&2 && exit 1
+
+echo "📦 Merged ${kind} coverage report: ${report}"
+echo "✅ ${kind} coverage meets the ${minimum}% minimum"

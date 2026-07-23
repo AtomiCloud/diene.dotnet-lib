@@ -1,32 +1,23 @@
 version: '3'
+
+vars:
+  MODE: '{{.MODE | default "unit"}}'
+
 tasks:
   default:
-    desc: Run unit + integration tests
+    internal: true
+    desc: Run the {{.MODE}} test tier
     cmds:
-      - task: unit
-      - task: int
-  unit:
-    desc: Run unit tests
-    cmds:
-      - ./scripts/local/dotnet-test.sh unit
-  int:
-    desc: Run integration tests
-    cmds:
-      - ./scripts/local/dotnet-test.sh int
+      - ./scripts/local/dotnet-test.sh {{.MODE}}
+
   coverage:
-    desc: Run unit + integration tests with coverage (enforces both thresholds)
+    internal: true
+    desc: Run the {{.MODE}} test tier with merged blocking coverage
     cmds:
-      - task: unit:coverage
-      - task: int:coverage
-  unit:coverage:
-    desc: Run unit tests with full coverage (enforces the unit threshold)
-    cmds:
-      - ./scripts/local/dotnet-test.sh unit --coverage
-  int:coverage:
-    desc: Run integration tests with full coverage (enforces the integration threshold)
-    cmds:
-      - ./scripts/local/dotnet-test.sh int --coverage
+      - ./scripts/local/dotnet-test.sh {{.MODE}} --coverage
+
   watch:
-    desc: Watch the fast unit suite
+    internal: true
+    desc: Watch the {{.MODE}} test tier
     cmds:
-      - ./scripts/local/dotnet-test.sh unit --watch
+      - ./scripts/local/dotnet-test.sh {{.MODE}} --watch

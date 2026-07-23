@@ -1,27 +1,29 @@
-# Coverage statuses are informational (non-blocking): they annotate PRs but never
-# fail CI. The blocking coverage gate is local (.config/dotnet-base.test.yaml);
-# thresholds here are stated explicitly so the allowed drop is unambiguous.
+# Coverage uploads are informational. Local merged thresholds are authoritative.
 coverage:
   status:
     project:
       default:
-        target: auto # compare against the base commit
-        threshold: 1% # tolerate up to a 1% project coverage drop
+        target: auto
+        threshold: 1%
         informational: true
     patch:
       default:
-        target: auto # coverage expected on the changed lines
-        threshold: 1% # tolerate up to a 1% patch coverage drop
+        target: auto
+        threshold: 1%
         informational: true
 
 flags:
   unit:
     paths:
-      - Lib/
+      - Lib*/
     carryforward: true
   int:
     paths:
-      - App/
+      - App*/
+    carryforward: true
+  meta:
+    paths:
+      - TestHelper*/
     carryforward: true
 
 comment:

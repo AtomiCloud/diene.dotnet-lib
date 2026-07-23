@@ -1,5 +1,6 @@
 using System.Text;
-using AtomiCloud.DotnetBase.Lib.Note;
+using AtomiCloud.Diene.Note;
+using AtomiCloud.Diene.Note.TestHelper.Note;
 using FluentAssertions;
 
 namespace AtomiCloud.DotnetBase.UnitTest.Note;
@@ -18,6 +19,7 @@ public class NoteSummariser_Summarise
 
         // Assert
         actual.Should().Be("Hello — world");
+        subject.AssertSummary(input, 80, "Hello — world");
     }
 
     [Fact]
@@ -51,8 +53,7 @@ public class NoteSummariser_Summarise
 
     [Theory]
     [ClassData(typeof(SeparatorBoundary_Data))]
-    public void It_should_not_leave_a_dangling_separator_when_truncating_between_parts(
-        int maxLength, string expected)
+    public void It_should_not_leave_a_dangling_separator_when_truncating_between_parts(int maxLength, string expected)
     {
         // Arrange
         var subject = new NoteSummariser();
@@ -69,7 +70,10 @@ public class NoteSummariser_Summarise
     [Theory]
     [ClassData(typeof(EmDashAtBoundary_Data))]
     public void It_should_distinguish_the_separator_from_a_content_em_dash(
-        string title, string body, int maxLength, string expected)
+        string title,
+        string body,
+        int maxLength,
+        string expected)
     {
         // Arrange
         var subject = new NoteSummariser();
@@ -85,8 +89,7 @@ public class NoteSummariser_Summarise
 
     [Theory]
     [ClassData(typeof(SurrogateBoundary_Data))]
-    public void It_should_never_split_a_surrogate_pair_when_truncating(
-        string title, int maxLength, string expected)
+    public void It_should_never_split_a_surrogate_pair_when_truncating(string title, int maxLength, string expected)
     {
         // Arrange
         var subject = new NoteSummariser();
@@ -98,7 +101,6 @@ public class NoteSummariser_Summarise
         // Assert
         actual.Should().Be(expected);
         actual.Length.Should().BeLessThanOrEqualTo(maxLength);
-        // The preview must be structurally valid Unicode: no orphaned surrogate code units.
         actual.EnumerateRunes().Should().NotContain(rune => rune == Rune.ReplacementChar);
     }
 
@@ -117,46 +119,19 @@ public class NoteSummariser_Summarise
         actual.Length.Should().BeLessThanOrEqualTo(5);
     }
 
-    [Fact]
-    public void It_should_omit_the_separator_when_the_body_is_empty()
+    [Theory]
+    [ClassData(typeof(EmptyPart_Data))]
+    public void It_should_omit_empty_parts(string title, string body, string expected)
     {
         // Arrange
         var subject = new NoteSummariser();
-        var input = new NoteRecord { Title = "Only title", Body = "" };
+        var input = new NoteRecord { Title = title, Body = body };
 
         // Act
         var actual = subject.Summarise(input, 80);
 
         // Assert
-        actual.Should().Be("Only title");
-    }
-
-    [Fact]
-    public void It_should_omit_the_separator_when_the_title_is_empty()
-    {
-        // Arrange
-        var subject = new NoteSummariser();
-        var input = new NoteRecord { Title = "   ", Body = "Body only" };
-
-        // Act
-        var actual = subject.Summarise(input, 80);
-
-        // Assert
-        actual.Should().Be("Body only");
-    }
-
-    [Fact]
-    public void It_should_return_an_empty_string_when_both_parts_are_blank()
-    {
-        // Arrange
-        var subject = new NoteSummariser();
-        var input = new NoteRecord { Title = "", Body = "  \t " };
-
-        // Act
-        var actual = subject.Summarise(input, 80);
-
-        // Assert
-        actual.Should().BeEmpty();
+        actual.Should().Be(expected);
     }
 
     [Theory]
@@ -178,8 +153,6 @@ public class NoteSummariser_Summarise
     {
         public SeparatorBoundary_Data()
         {
-            // "hello world — foo" (length 17); clip windows that end on the " — "
-            // separator must not leave a dangling em dash before the ellipsis.
             Add(14, "hello world…");
             Add(15, "hello world…");
             Add(16, "hello world…");
@@ -191,19 +164,9 @@ public class NoteSummariser_Summarise
     {
         public EmDashAtBoundary_Data()
         {
-            // H1: the body's own leading em dash abuts the join separator, so the
-            // collapsed text holds two adjacent em dashes (" — — "). When the clip
-            // keeps only that orphaned body em dash, drop the body and its separator
-            // rather than leave a dangling "Title —…".
             Add("hello", "— foo", 11, "hello…");
             Add("Quote", "— Twain", 12, "Quote…");
-
-            // H2: a content em dash inside a single field (no body, so no separator)
-            // is real text and must be preserved, not mistaken for the separator.
             Add("hello — foo", "", 9, "hello —…");
-
-            // Guard: when real body words survive past the separator, the separator is
-            // legitimate content and stays — over-stripping must not eat it.
             Add("Title", "real body text", 14, "Title — real…");
         }
     }
@@ -212,14 +175,19 @@ public class NoteSummariser_Summarise
     {
         public SurrogateBoundary_Data()
         {
-            // "😀" is one astral-plane character encoded as two UTF-16 code units. A clip that
-            // lands between its halves must not emit the orphaned high surrogate.
-            // Budget splits the pair with no safe slice point -> drop it entirely.
             Add("😀boom", 2, "…");
-            // A preceding ASCII char gives a safe boundary -> keep "a", drop the split emoji.
             Add("a😀boom", 3, "a…");
-            // The whole pair fits before the clip point -> the emoji is preserved intact.
             Add("😀 boom", 4, "😀…");
+        }
+    }
+
+    private sealed class EmptyPart_Data : TheoryData<string, string, string>
+    {
+        public EmptyPart_Data()
+        {
+            Add("Only title", "", "Only title");
+            Add("   ", "Body only", "Body only");
+            Add("", "  \t ", "");
         }
     }
 
