@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/AtomiCloud/diene.dotnet-lib/compare/v1.0.2...v1.0.3) (2026-07-24)
+
+
+### 🐛 Bug Fixes 🐛
+
+* **dotnet:** parse Cobertura coverage scope ([b388e3e](https://github.com/AtomiCloud/diene.dotnet-lib/commit/b388e3ea89e598934d4e100adbeb520750d654c2))
+
 ## [1.0.2](https://github.com/AtomiCloud/diene.dotnet-lib/compare/v1.0.1...v1.0.2) (2026-07-23)
 
 
